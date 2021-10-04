@@ -25,6 +25,9 @@ Session::config()->set('cookie_samesite', 'Lax');
 ## Requirements
 * SilverStripe ~4.8 (just tested with that)
 
+## Credits
+https://github.com/pine3ree
+
 ## Installation
 Use [composer](https://getcomposer.org/):
 `composer require lerni/samesite-cookie-patch`

@@ -1,19 +1,21 @@
 {
-    "name": "lerni/samesite-cookie-patch",
-    "description": "SilverStripe 4.8 Composer installable patch to add SameSite Cookie",
-    "require": {
-      "cweagans/composer-patches": "~1.7",
-      "silverstripe/framework": "^4.8"
-    },
-    "config": {
-      "preferred-install": "source"
-    },
-    "extra": {
-      "enable-patching": true,
-      "patches": {
-        "silverstripe/framework ": {
-            "patches-file": "patches/silverstripe-framework-pull-9920.diff"
+  "name": "lerni/samesite-cookie-patch",
+  "description": "SilverStripe 4.8 Composer installable patch to add SameSite Cookie - PR 9920 silverstripe/framework",
+  "homepage": "https://github.com/lerni/samesite-cookie-patch",
+  "keywords": ["silverstripe", "SameSite", "Cookie", "patch"],
+  "license": "BSD-3-Clause",
+  "require": {
+    "netresearch/composer-patches-plugin": "^1.3",
+    "silverstripe/framework": "^4.8"
+  },
+  "extra": {
+    "patches": {
+      "silverstripe/framework": [
+        {
+          "title": "[PATCH]Composer installable patch to to add SameSite Cookie - PR 9920 silverstripe/framework",
+          "url": "https://gist.githubusercontent.com/lerni/6a11a9b17ec2c2ff3925af5ff26a6bcd/raw/a3b9ab3048160b470ee8962475986a974b6a0db7/patch.diff"
         }
-      }
+      ]
     }
   }
+}
