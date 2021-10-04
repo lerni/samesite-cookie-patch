@@ -6,16 +6,6 @@ This module patches according to https://github.com/silverstripe/silverstripe-fr
 - https://blog.chromium.org/2020/01/building-more-private-web-path-towards.html
 
 ## How it works
-For the `cweagans/composer-patches` to work you need to allow patching and probable also want to set `composer-exit-on-patch-failure` to `true` in your projects `composer.json`.
-
-```json
-    ...
-    "extra": {
-        "enable-patching": true,
-        "composer-exit-on-patch-failure": true
-    },
-    ...
-```
 
 As in the PR stated you need to add...
 ```

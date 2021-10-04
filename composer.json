@@ -9,6 +9,7 @@
       "preferred-install": "source"
     },
     "extra": {
+      "enable-patching": true,
       "patches": {
         "silverstripe/framework ": {
             "patches-file": "patches/silverstripe-framework-pull-9920.diff"
