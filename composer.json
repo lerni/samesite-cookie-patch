@@ -1,4 +1,6 @@
 {
+    "name": "lerni/samesite-cookie-patch",
+    "description": "SilverStripe 4.8 Composer installable patch to add SameSite Cookie",
     "require": {
       "cweagans/composer-patches": "~1.7",
       "silverstripe/framework": "^4.8"
