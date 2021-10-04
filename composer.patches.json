@@ -1,0 +1,7 @@
+{
+  "patches": {
+    "silverstripe/framework": {
+      "Patch title": "https://gist.githubusercontent.com/lerni/6a11a9b17ec2c2ff3925af5ff26a6bcd/raw/a3b9ab3048160b470ee8962475986a974b6a0db7/patch.diff"
+    }
+  }
+}
