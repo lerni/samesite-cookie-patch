@@ -10,8 +10,8 @@
     },
     "extra": {
       "patches": {
-        "lerni/samesite-cookie-patch": {
-            "patches-file": "composer.patches.json"
+        "silverstripe/framework ": {
+            "patches-file": "patches/silverstripe-framework-pull-9920.diff"
         }
       }
     }

@@ -1,0 +1,206 @@
+diff --git a/src/Control/Cookie.php b/src/Control/Cookie.php
+index 9c48b4ced..ce6e4b5fd 100644
+--- a/src/Control/Cookie.php
++++ b/src/Control/Cookie.php
+@@ -5,6 +5,11 @@ namespace SilverStripe\Control;
+ use SilverStripe\Core\Config\Configurable;
+ use SilverStripe\Core\Injector\Injector;
+ 
++use function in_array;
++use function strtolower;
++use function trim;
++use function ucfirst;
++
+ /**
+  * A set of static methods for manipulating cookies.
+  */
+@@ -19,6 +24,17 @@ class Cookie
+      */
+     private static $report_errors = true;
+ 
++    /**
++     * @config
++     * @var string One of 'Strict', 'Lax', 'None', ''
++     */
++    private static $samesite = '';
++
++    /*
++     * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite#lax
++     */
++    private const SAMESITE_DEFAULT = 'Lax';
++
+     /**
+      * Fetch the current instance of the cookie backend.
+      *
+@@ -92,4 +108,28 @@ class Cookie
+     {
+         return self::get_inst()->forceExpiry($name, $path, $domain, $secure, $httpOnly);
+     }
++
++    /**
++     * Get a valid SameSite atribute value
++     *
++     * @internal Not part of public api: for internal use only
++     *
++     * @param string|null $sameSite
++     * @param bool $allowEmpty Alow returning an empty string
++     * @return string
++     */
++    public static function get_valid_samesite_value(string $sameSite = null, bool $allowEmpty = true): string
++    {
++        $sameSite = trim($sameSite ?? '');
++        if ('' === $sameSite) {
++            return $allowEmpty ? '' : self::SAMESITE_DEFAULT;
++        }
++
++        $sameSite = ucfirst(strtolower($sameSite));
++        if (in_array($sameSite, ['Strict', 'Lax', 'None'], true)) {
++            return $sameSite;
++        }
++
++        return $allowEmpty ? '' : self::SAMESITE_DEFAULT;
++    }
+ }
+diff --git a/src/Control/CookieJar.php b/src/Control/CookieJar.php
+index 0ebaa350f..00e8a5448 100644
+--- a/src/Control/CookieJar.php
++++ b/src/Control/CookieJar.php
+@@ -5,6 +5,8 @@ namespace SilverStripe\Control;
+ use SilverStripe\ORM\FieldType\DBDatetime;
+ use LogicException;
+ 
++use const PHP_VERSION_ID;
++
+ /**
+  * A default backend for the setting and getting of cookies
+  *
+@@ -81,12 +83,15 @@ class CookieJar implements Cookie_Backend
+         //expiry === 0 is a special case where we set a cookie for the current user session
+         if ($expiry !== 0) {
+             //don't do the maths if we are clearing
+-            $expiry = $clear ? -1 : DBDatetime::now()->getTimestamp() + (86400 * $expiry);
++            $expires = $clear ? -1 : DBDatetime::now()->getTimestamp() + (86400 * $expiry);
++        } else {
++            $expires = 0;
+         }
++
+         //set the path up
+         $path = $path ? $path : Director::baseURL();
+         //send the cookie
+-        $this->outputCookie($name, $value, $expiry, $path, $domain, $secure, $httpOnly);
++        $this->outputCookie($name, $value, $expires, $path, $domain, $secure, $httpOnly);
+         //keep our variables in check
+         if ($clear) {
+             unset($this->new[$name], $this->current[$name]);
+@@ -152,7 +157,7 @@ class CookieJar implements Cookie_Backend
+      *
+      * @param string $name The name of the cookie
+      * @param string|array $value The value for the cookie to hold
+-     * @param int $expiry A Unix timestamp indicating when the cookie expires; 0 means it will expire at the end of the session
++     * @param int $expires A Unix timestamp indicating when the cookie expires; 0 means it will expire at the end of the session
+      * @param string $path The path to save the cookie on (falls back to site base)
+      * @param string $domain The domain to make the cookie available on
+      * @param boolean $secure Can the cookie only be sent over SSL?
+@@ -162,7 +167,7 @@ class CookieJar implements Cookie_Backend
+     protected function outputCookie(
+         $name,
+         $value,
+-        $expiry = 90,
++        $expires = 0,
+         $path = null,
+         $domain = null,
+         $secure = false,
+@@ -170,7 +175,28 @@ class CookieJar implements Cookie_Backend
+     ) {
+         // if headers aren't sent, we can set the cookie
+         if (!headers_sent($file, $line)) {
+-            return setcookie($name, $value, $expiry, $path, $domain, $secure, $httpOnly);
++            $sameSite = Cookie::get_valid_samesite_value(Cookie::config()->get('samesite'), true);
++            // @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite#none
++            if ($sameSite === 'None') {
++                $secure = true;
++            }
++
++            if (PHP_VERSION_ID < 70300) {
++                if ('' !== $sameSite) {
++                    $path = $path ?: '/'; // we must have a value for path to esploit the php bug for PHP<7.3
++                    $path = "{$path}; SameSite={$sameSite}";
++                }
++                return setcookie($name, $value, $expires, $path, $domain, $secure, $httpOnly);
++            }
++
++            return setcookie($name, $value, [
++                'expires'  => $expires,
++                'path'     => $path,
++                'domain'   => $domain,
++                'secure'   => $secure,
++                'httponly' => $httpOnly,
++                'samesite' => $sameSite
++            ]);
+         }
+ 
+         if (Cookie::config()->uninherited('report_errors')) {
+diff --git a/src/Control/Session.php b/src/Control/Session.php
+index 1aeb951ee..18fd83c00 100644
+--- a/src/Control/Session.php
++++ b/src/Control/Session.php
+@@ -6,6 +6,16 @@ use BadMethodCallException;
+ use SilverStripe\Core\Config\Configurable;
+ use SilverStripe\Dev\Deprecation;
+ 
++use function headers_sent;
++use function session_cache_limiter;
++use function session_id;
++use function session_name;
++use function session_save_path;
++use function session_set_cookie_params;
++use function session_start;
++
++use const PHP_VERSION_ID;
++
+ /**
+  * Handles all manipulation of the session.
+  *
+@@ -135,6 +145,12 @@ class Session
+      */
+     private static $cookie_name_secure = 'SECSESSID';
+ 
++    /**
++     * @config
++     * @var string
++     */
++    private static $cookie_samesite = '';
++
+     /**
+      * Name of session cache limiter to use.
+      * Defaults to '' to disable cache limiter entirely.
+@@ -307,7 +323,28 @@ class Session
+         $data = [];
+         if (!session_id() && (!headers_sent() || $this->requestContainsSessionId($request))) {
+             if (!headers_sent()) {
+-                session_set_cookie_params($timeout ?: 0, $path, $domain ?: null, $secure, true);
++
++                $sameSite = Cookie::get_valid_samesite_value(self::config()->get('cookie_samesite'), true);
++                // @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite#none
++                if ($sameSite === 'None') {
++                    $secure = true;
++                }
++
++                if (PHP_VERSION_ID < 70300) {
++                    if ('' !== $sameSite) {
++                        $path = "{$path}; SameSite={$sameSite}";
++                    }
++                    session_set_cookie_params($timeout, $path, $domain ?: null, $secure, true);
++                } else {
++                    session_set_cookie_params([
++                        'lifetime' => $timeout,
++                        'path'     => $path,
++                        'domain'   => $domain ?: null,
++                        'secure'   => $secure,
++                        'httponly' => true,
++                        'samesite' => $sameSite,
++                    ]);
++                }
+ 
+                 $limiter = $this->config()->get('sessionCacheLimiter');
+                 if (isset($limiter)) {
