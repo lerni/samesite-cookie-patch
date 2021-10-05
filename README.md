@@ -1,4 +1,4 @@
-# SilverStripe 4.8 Composer installable patch for adding SameSite Cookie
+# Silverstripe 4.8 Composer installable patch for adding SameSite Cookie
 This module patches according to https://github.com/silverstripe/silverstripe-framework/pull/9920
 
 - https://www.youtube.com/watch?v=Fet6-IiX69E&list=RDCMUCnUYZLuoy1rq1aVMwx4aTzw&index=1
